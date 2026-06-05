@@ -15,6 +15,7 @@ const ast = toJavaScriptAst(document);
 assert.equal(ast.kind, 'javascript.module');
 assert.ok(ast.declarations.some((declaration) => declaration.kind === 'exportConst' && declaration.name === 'TodoSchema'));
 assert.ok(ast.declarations.some((declaration) => declaration.kind === 'exportConst' && declaration.name === 'HttpRequestCapability'));
+assert.equal(ast.declarations.find((declaration) => declaration.kind === 'exportConst' && declaration.name === 'TodoSchema').sourceRef.semanticNodeId, 'entity_todo');
 assert.equal(renderJavaScriptAst(ast), out);
 assert.match(out, /export const TagSetLattice/);
 assert.match(out, /export const HttpRequestCapability/);
