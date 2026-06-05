@@ -91,9 +91,31 @@ export function toJavaScriptAst(document, options = {}) {
 }
 
 export function renderJavaScriptAst(ast) {
+  return renderJavaScriptAstWithSourceMap(ast).code;
+}
+
+export function renderJavaScriptAstWithSourceMap(ast, options = {}) {
   const lines = [];
+  const mappings = [];
+  const target = normalizeTarget(options, 'javascript');
   lines.push(`// ${ast.banner}`, '');
-  for (const declaration of ast.declarations) {
+  ast.declarations.forEach((declaration, index) => {
+    const startLine = lines.length + 1;
+    const startIndex = lines.length;
+    renderJavaScriptDeclaration(lines, declaration);
+    const generatedSpan = declarationBlockSpan(lines, startIndex, startLine, declaration, target, options.targetPath);
+    if (declaration.sourceRef?.semanticNodeId && generatedSpan) {
+      mappings.push(sourceMapMapping(declaration, index, generatedSpan, target, options, 'javascript-renderer-declaration-block'));
+    }
+  });
+  const code = `${lines.join('\n').trimEnd()}\n`;
+  return {
+    code,
+    sourceMap: sourceMapEnvelope(ast, mappings, target, options, 'javascript', 'javascript-renderer-declaration-block')
+  };
+}
+
+function renderJavaScriptDeclaration(lines, declaration) {
     if (declaration.kind === 'exportConst') {
       const value = declaration.freeze ? `Object.freeze(${stableJson(declaration.value)})` : stableJson(declaration.value);
       lines.push(`export const ${declaration.name} = ${value};`, '');
@@ -103,10 +125,104 @@ export function renderJavaScriptAst(ast) {
       for (const statement of declaration.body) lines.push(`  ${statement}`);
       lines.push('}', '');
     }
-  }
-  return `${lines.join('\n').trimEnd()}\n`;
 }
 
 export function emitJavaScript(document, options = {}) {
   return renderJavaScriptAst(toJavaScriptAst(document, options));
+}
+
+export function emitJavaScriptWithSourceMap(document, options = {}) {
+  const ast = toJavaScriptAst(document, options);
+  const result = renderJavaScriptAstWithSourceMap(ast, {
+    sourceMapId: options.sourceMapId ?? `sourcemap_${idFragment(document.id)}_javascript`,
+    ...options
+  });
+  return { ...result, ast };
+}
+
+function declarationBlockSpan(lines, startIndex, startLine, declaration, target, targetPath) {
+  let endIndex = lines.length - 1;
+  while (endIndex >= startIndex && lines[endIndex] === '') endIndex -= 1;
+  if (endIndex < startIndex) return undefined;
+  return definedObject({
+    path: targetPath,
+    target,
+    targetPath,
+    generatedName: declaration.name,
+    startLine,
+    startColumn: 1,
+    endLine: endIndex + 1,
+    endColumn: lines[endIndex].length + 1
+  });
+}
+
+function normalizeTarget(options, language) {
+  return definedObject({
+    ...(options.target ?? {}),
+    language: options.target?.language ?? language,
+    emitPath: options.target?.emitPath ?? options.targetPath
+  });
+}
+
+function sourceMapMapping(declaration, index, generatedSpan, target, options, strategy) {
+  return definedObject({
+    id: `map_${idFragment(declaration.sourceRef.semanticNodeId)}_${index}`,
+    semanticNodeId: declaration.sourceRef.semanticNodeId,
+    nativeSourceId: options.nativeSourceId,
+    semanticSymbolId: options.semanticSymbolIdsBySemanticNodeId?.[declaration.sourceRef.semanticNodeId],
+    semanticOccurrenceId: options.semanticOccurrenceIdsBySemanticNodeId?.[declaration.sourceRef.semanticNodeId],
+    sourceSpan: options.sourceSpansBySemanticNodeId?.[declaration.sourceRef.semanticNodeId],
+    generatedSpan,
+    target,
+    generatedName: declaration.name,
+    evidenceIds: options.evidence?.map((record) => record.id),
+    lossIds: options.lossIdsBySemanticNodeId?.[declaration.sourceRef.semanticNodeId],
+    precision: 'declaration',
+    metadata: {
+      generatedSpanStrategy: strategy,
+      sourceMapImplication: 'Generated span covers the emitted declaration block and is not token exact.',
+      semanticIndexImplication: 'Mapping is anchored by semanticNodeId; symbol and occurrence ids are optional caller-provided links.',
+      lossAccountingImplication: 'No loss ids are inferred by the printer; caller-provided loss ids are copied when available.',
+      mergeReadinessImplication: 'Suitable for declaration-level overlap review, not fine-grained token merge admission.',
+      semanticNodeKind: declaration.sourceRef.semanticNodeKind,
+      semanticNodeName: declaration.sourceRef.semanticNodeName,
+      regionIds: declaration.sourceRef.regionIds
+    }
+  });
+}
+
+function sourceMapEnvelope(ast, mappings, target, options, language, strategy) {
+  return definedObject({
+    kind: 'frontier.lang.sourceMap',
+    version: 1,
+    id: options.sourceMapId ?? `sourcemap_${idFragment(ast.kind)}_${language}`,
+    sourcePath: options.sourcePath,
+    sourceHash: options.sourceHash,
+    target,
+    targetPath: options.targetPath,
+    targetHash: options.targetHash,
+    semanticIndexId: options.semanticIndexId,
+    universalAstId: options.universalAstId,
+    nativeAstId: options.nativeAstId,
+    nativeSourceId: options.nativeSourceId,
+    mappings,
+    evidence: options.evidence ?? [],
+    metadata: {
+      generatedSpanStrategy: strategy,
+      precision: 'declaration',
+      sourceMapImplication: 'Approximate generated spans are emitted as sidecar mappings without rewriting the printer.',
+      semanticIndexImplication: 'Semantic index linkage remains optional and can be attached through ids supplied in options.',
+      lossAccountingImplication: 'The renderer does not create loss records; existing loss ids can be associated per semantic node.',
+      mergeReadinessImplication: 'Declaration-block mappings can guide generated-output review but should not be treated as token-exact source maps.',
+      ...(options.metadata ?? {})
+    }
+  });
+}
+
+function definedObject(object) {
+  return Object.fromEntries(Object.entries(object).filter(([, value]) => value !== undefined));
+}
+
+function idFragment(value) {
+  return safeIdentifier(String(value ?? 'unknown')).replace(/^_+/, '') || 'unknown';
 }
