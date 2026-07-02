@@ -1,3 +1,5 @@
+import { semanticDescriptorDeclarations } from './semantic-descriptors.js';
+
 function safeIdentifier(name) {
   const identifier = name.replace(/[^A-Za-z0-9_$]/g, '_');
   return /^[A-Za-z_$]/.test(identifier) ? identifier : `_${identifier}`;
@@ -61,6 +63,7 @@ export function toJavaScriptAst(document, options = {}) {
       });
     }
   }
+  declarations.push(...semanticDescriptorDeclarations(document, { safeIdentifier, sourceRef }));
   for (const node of Object.values(document.nodes)) {
     if (node.kind === 'entity' || node.kind === 'type') {
       declarations.push({
