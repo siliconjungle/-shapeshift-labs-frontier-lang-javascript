@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { createDocument, entityNode, latticeNode, actionNode, capabilityNode } from '@shapeshift-labs/frontier-lang-kernel';
+import { createDocument, entityNode, latticeNode, actionNode, capabilityNode, viewNode } from '@shapeshift-labs/frontier-lang-kernel';
 import { emitJavaScript, emitJavaScriptWithSourceMap, renderJavaScriptAst, renderJavaScriptAstWithSourceMap, toJavaScriptAst } from '../dist/index.js';
 
 const document = createDocument({ id: 'doc', name: 'Doc', nodes: [
@@ -8,6 +8,7 @@ const document = createDocument({ id: 'doc', name: 'Doc', nodes: [
     { target: { language: 'javascript', platform: 'browser' }, symbol: 'fetch', kind: 'host' }
   ] }),
   entityNode({ id: 'entity_todo', name: 'Todo', fields: [{ id: 'title', name: 'title', type: 'Text' }] }),
+  viewNode({ id: 'view_todo_list', name: 'TodoList', reads: ['TodoDb.todos'], dispatches: ['action_add'], props: [{ id: 'view_prop_disabled', name: 'disabled', type: 'Boolean' }], events: [{ id: 'view_event_save', name: 'save', action: 'action_add' }], renders: [{ id: 'render_save_button', kind: 'element', tagName: 'Button', identityKey: 'save', text: 'Save' }] }),
   actionNode({ id: 'action_add', name: 'addTodo', input: 'Todo', returns: 'Patch' })
 ] });
 const out = emitJavaScript(document);
@@ -35,6 +36,7 @@ const emitted = emitJavaScriptWithSourceMap(document, { targetPath: 'doc.js' });
 assert.equal(ast.kind, 'javascript.module');
 assert.ok(ast.declarations.some((declaration) => declaration.kind === 'exportConst' && declaration.name === 'TodoSchema'));
 assert.ok(ast.declarations.some((declaration) => declaration.kind === 'exportConst' && declaration.name === 'HttpRequestCapability'));
+assert.ok(ast.declarations.some((declaration) => declaration.kind === 'exportConst' && declaration.name === 'TodoListView'));
 assert.equal(ast.declarations.find((declaration) => declaration.kind === 'exportConst' && declaration.name === 'TodoSchema').sourceRef.semanticNodeId, 'entity_todo');
 assert.equal(renderJavaScriptAst(ast), out);
 assert.equal(rendered.code, out);
@@ -59,6 +61,8 @@ assert.deepEqual(todoMapping.evidenceIds, ['evidence_projection']);
 assert.deepEqual(todoMapping.metadata.regionIds, ['title']);
 assert.match(out, /export const TagSetLattice/);
 assert.match(out, /export const HttpRequestCapability/);
+assert.match(out, /export const TodoListView/);
+assert.match(out, /"tagName":"Button"/);
 assert.match(out, /http\.request/);
 assert.match(out, /createCrdtOrSetLattice/);
 assert.match(out, /export const TodoSchema/);

@@ -78,6 +78,17 @@ export function toJavaScriptAst(document, options = {}) {
     }
   }
   for (const node of Object.values(document.nodes)) {
+    if (node.kind === 'view') {
+      declarations.push({
+        kind: 'exportConst',
+        name: `${safeIdentifier(node.name)}View`,
+        value: { name: node.name, reads: node.reads ?? [], dispatches: node.dispatches ?? [], props: node.props ?? [], events: node.events ?? [], renders: node.renders ?? [] },
+        freeze: true,
+        sourceRef: sourceRef(node, { regionIds: [...(node.props ?? []).map((prop) => prop.id), ...(node.events ?? []).map((event) => event.id), ...(node.renders ?? []).map((render) => render.id)] })
+      });
+    }
+  }
+  for (const node of Object.values(document.nodes)) {
     if (node.kind === 'extern') {
       declarations.push({ kind: 'exportFunction', name: safeIdentifier(node.name), params: [], body: [`throw new Error(${JSON.stringify(`Extern ${node.name} must be provided by the host runtime.`)});`], sourceRef: sourceRef(node) });
     }
