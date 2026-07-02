@@ -102,7 +102,8 @@ export interface JavaScriptSourceRef {
 export type JavaScriptAstDeclaration =
   | { readonly kind: 'exportConst'; readonly name: string; readonly value: unknown; readonly freeze?: boolean; readonly sourceRef?: JavaScriptSourceRef }
   | { readonly kind: 'exportFunction'; readonly name: string; readonly params: readonly string[]; readonly body: readonly string[]; readonly sourceRef?: JavaScriptSourceRef }
-  | { readonly kind: 'viewRenderFunction'; readonly name: string; readonly renders: readonly unknown[]; readonly sourceRef?: JavaScriptSourceRef };
+  | { readonly kind: 'viewRenderFunction'; readonly name: string; readonly renders: readonly unknown[]; readonly sourceRef?: JavaScriptSourceRef }
+  | { readonly kind: 'effectRunnerFunction'; readonly name: string; readonly value: { readonly name: string; readonly capability: string; readonly resources: readonly string[]; readonly semantics?: unknown }; readonly sourceRef?: JavaScriptSourceRef };
 
 export interface JavaScriptAstModule {
   readonly kind: 'javascript.module';

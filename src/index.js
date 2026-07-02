@@ -186,6 +186,15 @@ function renderJavaScriptDeclaration(lines, declaration) {
       }
       lines.push('  ];', '}', '');
     }
+    if (declaration.kind === 'effectRunnerFunction') {
+      lines.push(`export async function ${declaration.name}(input, env) {`);
+      lines.push(`  return await env.invoke(${JSON.stringify(declaration.value.capability)}, input, {`);
+      lines.push(`    effect: ${JSON.stringify(declaration.value.name)},`);
+      lines.push(`    resources: ${JSON.stringify(declaration.value.resources)},`);
+      lines.push(`    semantics: ${JSON.stringify(declaration.value.semantics ?? null)}`);
+      lines.push('  });');
+      lines.push('}', '');
+    }
 }
 
 function renderPropValue(prop) {

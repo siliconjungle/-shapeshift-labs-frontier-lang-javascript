@@ -2,7 +2,7 @@ export function semanticDescriptorDeclarations(document, context) {
   const declarations = [];
   for (const node of Object.values(document.nodes)) {
     if (node.kind === 'action') declarations.push(actionDescriptor(node, context));
-    if (node.kind === 'effect') declarations.push(effectDescriptor(node, context));
+    if (node.kind === 'effect') declarations.push(effectDescriptor(node, context), effectRunnerFunction(node, context));
     if (node.kind === 'extern') declarations.push(externDescriptor(node, context));
     if (node.kind === 'state') declarations.push(stateDescriptor(node, context));
     if (node.kind === 'migration') declarations.push(migrationDescriptor(node, context));
@@ -44,6 +44,20 @@ function effectDescriptor(node, { safeIdentifier, sourceRef }) {
     resources: node.resources ?? [],
     semantics: node.semantics
   }, node, { sourceRef });
+}
+
+function effectRunnerFunction(node, { safeIdentifier, sourceRef }) {
+  return {
+    kind: 'effectRunnerFunction',
+    name: `run${safeIdentifier(node.name)}Effect`,
+    value: {
+      name: node.name,
+      capability: node.capability,
+      resources: node.resources ?? [],
+      semantics: node.semantics
+    },
+    sourceRef: sourceRef(node)
+  };
 }
 
 function externDescriptor(node, { safeIdentifier, sourceRef }) {
