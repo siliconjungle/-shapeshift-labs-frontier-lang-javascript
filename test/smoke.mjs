@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { createDocument, entityNode, latticeNode, actionNode, capabilityNode, effectNode, externNode, migrationNode, nativeSourceNode, stateNode, targetNode, viewNode } from '@shapeshift-labs/frontier-lang-kernel';
+import { createDocument, entityNode, latticeNode, actionNode, capabilityNode, effectNode, externNode, migrationNode, nativeSourceNode, stateNode, targetNode, typeNode, viewNode } from '@shapeshift-labs/frontier-lang-kernel';
 import { emitJavaScript, emitJavaScriptWithSourceMap, renderJavaScriptAst, renderJavaScriptAstWithSourceMap, toJavaScriptAst } from '../dist/index.js';
 const ref = (name, scope, path) => ({ kind: 'ref', name, scope, path });
 const literal = (value) => ({ kind: 'literal', value });
@@ -14,6 +14,14 @@ const document = createDocument({ id: 'doc', name: 'Doc', nodes: [
   entityNode({ id: 'entity_todo', name: 'Todo', fields: [
     { id: 'title', name: 'title', type: 'Text' },
     { id: 'count', name: 'count', type: 'Number' }
+  ] }),
+  typeNode({ id: 'type_load_state', name: 'LoadState', variants: [
+    { id: 'variant_loading', name: 'Loading' },
+    { id: 'variant_ready', name: 'Ready', fields: [
+      { id: 'variant_ready_value', name: 'value', type: 'Text' },
+      { id: 'variant_ready_stale', name: 'stale', type: 'Boolean', optional: true }
+    ] },
+    { id: 'variant_failed', name: 'Failed', fields: [{ id: 'variant_failed_message', name: 'message', type: 'Text' }] }
   ] }),
   stateNode({ id: 'state_todo', name: 'TodoDb', collections: [{ id: 'todos', name: 'todos', type: { kind: 'map', key: 'Text', value: 'Todo' } }] }),
   viewNode({ id: 'view_todo_list', name: 'TodoList', reads: ['TodoDb.todos'], dispatches: ['action_add'], props: [{ id: 'view_prop_disabled', name: 'disabled', type: 'Boolean' }], events: [{ id: 'view_event_save', name: 'save', action: 'action_add' }], renders: [{ id: 'render_save_button', kind: 'element', tagName: 'Button', identityKey: 'save', text: 'Save', props: [{ name: 'disabled', expression: 'disabled' }], events: [{ name: 'press', action: 'save' }] }] }),
@@ -72,6 +80,7 @@ const rendered = renderJavaScriptAstWithSourceMap(ast, {
 const emitted = emitJavaScriptWithSourceMap(document, { targetPath: 'doc.js' });
 assert.equal(ast.kind, 'javascript.module');
 assert.ok(ast.declarations.some((declaration) => declaration.kind === 'exportConst' && declaration.name === 'TodoSchema'));
+assert.ok(ast.declarations.some((declaration) => declaration.kind === 'exportConst' && declaration.name === 'LoadStateSchema'));
 assert.ok(ast.declarations.some((declaration) => declaration.kind === 'exportConst' && declaration.name === 'HttpRequestCapability'));
 assert.ok(ast.declarations.some((declaration) => declaration.kind === 'exportConst' && declaration.name === 'PersistTodoEffect'));
 assert.ok(ast.declarations.some((declaration) => declaration.kind === 'effectRunnerFunction' && declaration.name === 'runPersistTodoEffect'));
@@ -128,6 +137,8 @@ assert.match(out, /http\.request/);
 assert.match(out, /storage\.write/);
 assert.match(out, /createCrdtOrSetLattice/);
 assert.match(out, /export const TodoSchema/);
+assert.match(out, /export const LoadStateSchema/);
+assert.match(out, /"variants":\[\{"id":"variant_loading","name":"Loading"\},\{"fields":\[\{"id":"variant_ready_value","name":"value","type":"Text"\},\{"id":"variant_ready_stale","name":"stale","optional":true,"type":"Boolean"\}\],"id":"variant_ready","name":"Ready"\},\{"fields":\[\{"id":"variant_failed_message","name":"message","type":"Text"\}\],"id":"variant_failed","name":"Failed"\}\]/);
 assert.match(out, /export function addTodo/);
 assert.match(out, /const patches = \[\];/);
 assert.match(out, /const normalizedTitle = normalizeTitle\(input\.title\);/);
