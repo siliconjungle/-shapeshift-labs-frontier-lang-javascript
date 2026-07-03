@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { createDocument, entityNode, latticeNode, actionNode, capabilityNode, effectNode, externNode, migrationNode, nativeSourceNode, stateNode, targetNode, viewNode } from '@shapeshift-labs/frontier-lang-kernel';
 import { emitJavaScript, emitJavaScriptWithSourceMap, renderJavaScriptAst, renderJavaScriptAstWithSourceMap, toJavaScriptAst } from '../dist/index.js';
+const ref = (name, scope, path) => ({ kind: 'ref', name, scope, path });
+const literal = (value) => ({ kind: 'literal', value });
 
 const document = createDocument({ id: 'doc', name: 'Doc', nodes: [
   latticeNode({ id: 'lat_tags', name: 'TagSet', carrier: 'Set<Text>', laws: ['semilattice', 'commutative'], frontierCrdt: { packageName: '@shapeshift-labs/frontier-crdt', exportName: 'createCrdtOrSetLattice' } }),
@@ -16,18 +18,18 @@ const document = createDocument({ id: 'doc', name: 'Doc', nodes: [
   nativeSourceNode({ id: 'native_todo_js', name: 'TodoJs', language: 'javascript', parser: 'typescript-estree', sourcePath: 'doc.js', sourceHash: 'sha256:doc', symbol: 'Todo', frontierNodeIds: ['entity_todo', 'action_add'], losses: [{ id: 'loss_runtime_schema', kind: 'runtimeOnly', message: 'schema emitted as descriptor', severity: 'info' }] }),
   externNode({ id: 'extern_persist', name: 'persistTodo', language: 'javascript', symbol: 'persistTodo', signature: { input: 'Todo', returns: 'Patch' }, effects: ['storage'] }),
   actionNode({ id: 'action_add', name: 'addTodo', input: 'Todo', returns: 'Patch', body: [
-    { kind: 'let', id: 'bind_normalized_title', name: 'normalizedTitle', value: { expression: 'input.title' } },
-    { kind: 'let', id: 'bind_can_write', name: 'canWrite', value: { expression: 'input.enabled' } },
-    { kind: 'patch', op: 'set', id: 'patch_title', name: 'title', path: '/todos/title', value: { expression: 'normalizedTitle' } },
-    { kind: 'if', id: 'guard_enabled', name: 'enabled', condition: { expression: 'canWrite' }, body: [
+    { kind: 'let', id: 'bind_normalized_title', name: 'normalizedTitle', value: { expression: 'input.title', expressionAst: ref('input.title', 'input', ['title']) } },
+    { kind: 'let', id: 'bind_can_write', name: 'canWrite', value: { expression: 'input.enabled == true', expressionAst: { kind: 'binary', op: '==', left: ref('input.enabled', 'input', ['enabled']), right: literal(true) } } },
+    { kind: 'patch', op: 'set', id: 'patch_title', name: 'title', path: '/todos/title', value: { expression: 'normalizedTitle', expressionAst: ref('normalizedTitle', 'local', ['normalizedTitle']) } },
+    { kind: 'if', id: 'guard_enabled', name: 'enabled', condition: { expression: 'canWrite && input.enabled', expressionAst: { kind: 'logical', op: '&&', left: ref('canWrite', 'local', ['canWrite']), right: ref('input.enabled', 'input', ['enabled']) } }, body: [
       { kind: 'let', id: 'bind_status_text', name: 'statusText', value: { value: 'ready' } },
-      { kind: 'patch', op: 'set', id: 'patch_status', name: 'status', path: '/todos/status', value: { expression: 'statusText' } },
-      { kind: 'callEffect', id: 'call_guarded_storage', name: 'guardedPersist', capability: 'storage.write', input: { expression: 'normalizedTitle' } }
+      { kind: 'patch', op: 'set', id: 'patch_status', name: 'status', path: '/todos/status', value: { expression: 'statusText', expressionAst: ref('statusText', 'local', ['statusText']) } },
+      { kind: 'callEffect', id: 'call_guarded_storage', name: 'guardedPersist', capability: 'storage.write', input: { expression: 'normalizedTitle', expressionAst: ref('normalizedTitle', 'local', ['normalizedTitle']) } }
     ] },
-    { kind: 'patch', op: 'insert', id: 'patch_insert', name: 'item', path: '/todos', value: { expression: 'input' } },
+    { kind: 'patch', op: 'insert', id: 'patch_insert', name: 'item', path: '/todos', value: { expression: 'input', expressionAst: ref('input', 'input', []) } },
     { kind: 'patch', op: 'remove', id: 'patch_remove', name: 'oldTitle', path: '/todos/oldTitle' },
-    { kind: 'callEffect', id: 'call_storage', name: 'persist', capability: 'storage.write', input: { expression: 'input' } },
-    { kind: 'return', id: 'return_patches', value: { expression: 'patches' } }
+    { kind: 'callEffect', id: 'call_storage', name: 'persist', capability: 'storage.write', input: { expression: 'input', expressionAst: ref('input', 'input', []) } },
+    { kind: 'return', id: 'return_patches', value: { expression: 'patches', expressionAst: ref('patches', 'patches', []) } }
   ] })
 ] });
 const out = emitJavaScript(document);
@@ -113,11 +115,24 @@ assert.match(out, /export const TodoSchema/);
 assert.match(out, /export function addTodo/);
 assert.match(out, /const patches = \[\];/);
 assert.match(out, /const normalizedTitle = input\.title;/);
-assert.match(out, /const canWrite = input\.enabled;/);
+assert.match(out, /const canWrite = \(input\.enabled === true\);/);
 assert.match(out, /patches\.push\(\{ op: "set", path: "\/todos\/title", value: normalizedTitle \}\);/);
-assert.match(out, /if \(canWrite\) \{\n    const statusText = "ready";\n    patches\.push\(\{ op: "set", path: "\/todos\/status", value: statusText \}\);\n    const invoke_call_guarded_storage = env\["storage\.write"\];\n    if \(typeof invoke_call_guarded_storage === "function"\) invoke_call_guarded_storage\(normalizedTitle\);\n  \}/);
+assert.match(out, /if \(canWrite && input\.enabled\) \{\n    const statusText = "ready";\n    patches\.push\(\{ op: "set", path: "\/todos\/status", value: statusText \}\);\n    const invoke_call_guarded_storage = env\["storage\.write"\];\n    if \(typeof invoke_call_guarded_storage === "function"\) invoke_call_guarded_storage\(normalizedTitle\);\n  \}/);
 assert.match(out, /patches\.push\(\{ op: "insert", path: "\/todos", value: input \}\);/);
 assert.match(out, /patches\.push\(\{ op: 'remove', path: "\/todos\/oldTitle" \}\);/);
 assert.match(out, /const invoke_call_storage = env\["storage\.write"\];/);
 assert.match(out, /if \(typeof invoke_call_storage === "function"\) invoke_call_storage\(input\);/);
 assert.match(out, /return patches;/);
+
+const unsupportedExpressionDocument = createDocument({ id: 'bad', name: 'Bad', nodes: [
+  actionNode({ id: 'action_bad', name: 'badAction', returns: 'Patch', body: [
+    { kind: 'let', id: 'bad_operator', name: 'badOperator', value: { expressionAst: { kind: 'binary', op: '+', left: literal(1), right: literal(2) } } }
+  ] })
+] });
+assert.throws(() => emitJavaScript(unsupportedExpressionDocument), /Unsupported Frontier action expression operator/);
+const unsupportedRefDocument = createDocument({ id: 'bad_ref', name: 'BadRef', nodes: [
+  actionNode({ id: 'action_bad_ref', name: 'badRefAction', returns: 'Patch', body: [
+    { kind: 'let', id: 'bad_ref', name: 'badRef', value: { expressionAst: ref('env.secret', 'env', ['secret']) } }
+  ] })
+] });
+assert.throws(() => emitJavaScript(unsupportedRefDocument), /Unsupported Frontier action expression ref/);
