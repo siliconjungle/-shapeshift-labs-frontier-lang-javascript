@@ -10,7 +10,10 @@ const document = createDocument({ id: 'doc', name: 'Doc', nodes: [
     { target: { language: 'javascript', platform: 'browser' }, symbol: 'fetch', kind: 'host' }
   ] }),
   effectNode({ id: 'effect_persist', name: 'PersistTodo', capability: 'storage.write', input: 'Todo', returns: 'Json', resources: ['TodoDb.todos'] }),
-  entityNode({ id: 'entity_todo', name: 'Todo', fields: [{ id: 'title', name: 'title', type: 'Text' }] }),
+  entityNode({ id: 'entity_todo', name: 'Todo', fields: [
+    { id: 'title', name: 'title', type: 'Text' },
+    { id: 'count', name: 'count', type: 'Number' }
+  ] }),
   stateNode({ id: 'state_todo', name: 'TodoDb', collections: [{ id: 'todos', name: 'todos', type: { kind: 'map', key: 'Text', value: 'Todo' } }] }),
   viewNode({ id: 'view_todo_list', name: 'TodoList', reads: ['TodoDb.todos'], dispatches: ['action_add'], props: [{ id: 'view_prop_disabled', name: 'disabled', type: 'Boolean' }], events: [{ id: 'view_event_save', name: 'save', action: 'action_add' }], renders: [{ id: 'render_save_button', kind: 'element', tagName: 'Button', identityKey: 'save', text: 'Save', props: [{ name: 'disabled', expression: 'disabled' }], events: [{ name: 'press', action: 'save' }] }] }),
   migrationNode({ id: 'migration_todo_v1_v2', name: 'TodoV1ToV2', fromVersion: '1', toVersion: '2', changes: [{ id: 'change_add_title', kind: 'addField', target: 'Todo.title' }], invariants: ['title_present'] }),
@@ -20,7 +23,9 @@ const document = createDocument({ id: 'doc', name: 'Doc', nodes: [
   actionNode({ id: 'action_add', name: 'addTodo', input: 'Todo', returns: 'Patch', body: [
     { kind: 'let', id: 'bind_normalized_title', name: 'normalizedTitle', value: { expression: 'input.title', expressionAst: ref('input.title', 'input', ['title']) } },
     { kind: 'let', id: 'bind_can_write', name: 'canWrite', value: { expression: 'input.enabled == true', expressionAst: { kind: 'binary', op: '==', left: ref('input.enabled', 'input', ['enabled']), right: literal(true) } } },
+    { kind: 'let', id: 'bind_next_count', name: 'nextCount', valueType: 'Number', value: { expression: 'input.count + 1', expressionAst: { kind: 'binary', op: '+', left: ref('input.count', 'input', ['count']), right: literal(1) }, valueType: 'Number' } },
     { kind: 'patch', op: 'set', id: 'patch_title', name: 'title', path: '/todos/title', value: { expression: 'normalizedTitle', expressionAst: ref('normalizedTitle', 'local', ['normalizedTitle']) } },
+    { kind: 'patch', op: 'set', id: 'patch_count', name: 'count', path: '/todos/count', valueType: 'Number', value: { expression: 'nextCount', expressionAst: ref('nextCount', 'local', ['nextCount']), valueType: 'Number' } },
     { kind: 'if', id: 'guard_enabled', name: 'enabled', condition: { expression: 'canWrite && input.enabled', expressionAst: { kind: 'logical', op: '&&', left: ref('canWrite', 'local', ['canWrite']), right: ref('input.enabled', 'input', ['enabled']) } }, body: [
       { kind: 'let', id: 'bind_status_text', name: 'statusText', value: { value: 'ready' } },
       { kind: 'patch', op: 'set', id: 'patch_status', name: 'status', path: '/todos/status', value: { expression: 'statusText', expressionAst: ref('statusText', 'local', ['statusText']) } },
@@ -88,7 +93,7 @@ assert.equal(todoMapping.semanticSymbolId, 'symbol_todo');
 assert.equal(todoMapping.semanticOccurrenceId, 'occurrence_todo');
 assert.deepEqual(todoMapping.lossIds, ['loss_schema_runtime']);
 assert.deepEqual(todoMapping.evidenceIds, ['evidence_projection']);
-assert.deepEqual(todoMapping.metadata.regionIds, ['title']);
+assert.deepEqual(todoMapping.metadata.regionIds, ['title', 'count']);
 assert.match(out, /export const TagSetLattice/);
 assert.match(out, /export const HttpRequestCapability/);
 assert.match(out, /export const PersistTodoEffect/);
@@ -116,7 +121,9 @@ assert.match(out, /export function addTodo/);
 assert.match(out, /const patches = \[\];/);
 assert.match(out, /const normalizedTitle = input\.title;/);
 assert.match(out, /const canWrite = \(input\.enabled === true\);/);
+assert.match(out, /const nextCount = \(input\.count \+ 1\);/);
 assert.match(out, /patches\.push\(\{ op: "set", path: "\/todos\/title", value: normalizedTitle \}\);/);
+assert.match(out, /patches\.push\(\{ op: "set", path: "\/todos\/count", value: nextCount \}\);/);
 assert.match(out, /if \(canWrite && input\.enabled\) \{\n    const statusText = "ready";\n    patches\.push\(\{ op: "set", path: "\/todos\/status", value: statusText \}\);\n    const invoke_call_guarded_storage = env\["storage\.write"\];\n    if \(typeof invoke_call_guarded_storage === "function"\) invoke_call_guarded_storage\(normalizedTitle\);\n  \}/);
 assert.match(out, /patches\.push\(\{ op: "insert", path: "\/todos", value: input \}\);/);
 assert.match(out, /patches\.push\(\{ op: 'remove', path: "\/todos\/oldTitle" \}\);/);
