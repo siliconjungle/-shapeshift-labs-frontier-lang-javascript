@@ -23,6 +23,7 @@ const document = createDocument({ id: 'doc', name: 'Doc', nodes: [
     ] },
     { id: 'variant_failed', name: 'Failed', fields: [{ id: 'variant_failed_message', name: 'message', type: 'Text' }] }
   ] }),
+  typeNode({ id: 'type_box', name: 'Box', parameters: ['T'], typeParameters: [{ name: 'T', constraint: 'Json', default: 'Json' }], fields: [{ id: 'box_value', name: 'value', type: 'T' }] }),
   stateNode({ id: 'state_todo', name: 'TodoDb', collections: [{ id: 'todos', name: 'todos', type: { kind: 'map', key: 'Text', value: 'Todo' } }] }),
   viewNode({ id: 'view_todo_list', name: 'TodoList', reads: ['TodoDb.todos'], dispatches: ['action_add'], props: [{ id: 'view_prop_disabled', name: 'disabled', type: 'Boolean' }], events: [{ id: 'view_event_save', name: 'save', action: 'action_add' }], renders: [{ id: 'render_save_button', kind: 'element', tagName: 'Button', identityKey: 'save', text: 'Save', props: [{ name: 'disabled', expression: 'disabled' }], events: [{ name: 'press', action: 'save' }] }] }),
   migrationNode({ id: 'migration_todo_v1_v2', name: 'TodoV1ToV2', fromVersion: '1', toVersion: '2', changes: [{ id: 'change_add_title', kind: 'addField', target: 'Todo.title' }], invariants: ['title_present'] }),
@@ -138,6 +139,7 @@ assert.match(out, /storage\.write/);
 assert.match(out, /createCrdtOrSetLattice/);
 assert.match(out, /export const TodoSchema/);
 assert.match(out, /export const LoadStateSchema/);
+assert.match(out, /export const BoxSchema = Object\.freeze\(\{"fields":\[\{"id":"box_value","name":"value","type":"T"\}\],"kind":"type","name":"Box","parameters":\["T"\],"typeParameters":\[\{"constraint":"Json","default":"Json","name":"T"\}\],"variants":\[\]\}\);/);
 assert.match(out, /"variants":\[\{"id":"variant_loading","name":"Loading"\},\{"fields":\[\{"id":"variant_ready_value","name":"value","type":"Text"\},\{"id":"variant_ready_stale","name":"stale","optional":true,"type":"Boolean"\}\],"id":"variant_ready","name":"Ready"\},\{"fields":\[\{"id":"variant_failed_message","name":"message","type":"Text"\}\],"id":"variant_failed","name":"Failed"\}\]/);
 assert.match(out, /export function addTodo/);
 assert.match(out, /const patches = \[\];/);

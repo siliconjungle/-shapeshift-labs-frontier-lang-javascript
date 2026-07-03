@@ -93,6 +93,8 @@ export function toJavaScriptAst(document, options = {}) {
         value: {
           kind: node.kind,
           name: node.name,
+          parameters: node.parameters?.length ? node.parameters : undefined,
+          typeParameters: node.typeParameters?.length ? node.typeParameters : undefined,
           fields: node.fields ?? [],
           variants: node.variants ?? []
         },
