@@ -37,7 +37,7 @@ function renderActionBodyRecords(body, { safeIdentifier, locals }) {
       continue;
     }
     if (record.kind === 'return') {
-      statements.push(`return ${actionValueExpression(record.value, { safeIdentifier, locals })};`);
+      statements.push(`return ${actionValueExpression(record.value, { safeIdentifier, locals, valueType: actionRecordValueType(record), comparisonType: actionRecordComparisonType(record), callType: actionRecordCallType(record) })};`);
     }
   }
   return statements;
