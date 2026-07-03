@@ -33,6 +33,10 @@ function renderActionBodyRecords(body, { safeIdentifier, locals }) {
     if (record.kind === 'if') {
       statements.push(`if (${actionConditionExpression(record.condition, { safeIdentifier, locals, comparisonType: actionRecordComparisonType(record), callType: actionRecordCallType(record) })}) {`);
       for (const statement of renderActionBodyRecords(record.body ?? [], { safeIdentifier, locals: new Map(locals) })) statements.push(`  ${statement}`);
+      if (Array.isArray(record.elseBody) && record.elseBody.length) {
+        statements.push('} else {');
+        for (const statement of renderActionBodyRecords(record.elseBody, { safeIdentifier, locals: new Map(locals) })) statements.push(`  ${statement}`);
+      }
       statements.push('}');
       continue;
     }
