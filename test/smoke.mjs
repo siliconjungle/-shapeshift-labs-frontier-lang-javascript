@@ -17,6 +17,10 @@ const document = createDocument({ id: 'doc', name: 'Doc', nodes: [
   externNode({ id: 'extern_persist', name: 'persistTodo', language: 'javascript', symbol: 'persistTodo', signature: { input: 'Todo', returns: 'Patch' }, effects: ['storage'] }),
   actionNode({ id: 'action_add', name: 'addTodo', input: 'Todo', returns: 'Patch', body: [
     { kind: 'patch', op: 'set', id: 'patch_title', name: 'title', path: '/todos/title', value: { expression: 'input.title' } },
+    { kind: 'if', id: 'guard_enabled', name: 'enabled', condition: { expression: 'input.enabled' }, body: [
+      { kind: 'patch', op: 'set', id: 'patch_status', name: 'status', path: '/todos/status', value: { value: 'ready' } },
+      { kind: 'callEffect', id: 'call_guarded_storage', name: 'guardedPersist', capability: 'storage.write', input: { expression: 'input' } }
+    ] },
     { kind: 'patch', op: 'insert', id: 'patch_insert', name: 'item', path: '/todos', value: { expression: 'input' } },
     { kind: 'patch', op: 'remove', id: 'patch_remove', name: 'oldTitle', path: '/todos/oldTitle' },
     { kind: 'callEffect', id: 'call_storage', name: 'persist', capability: 'storage.write', input: { expression: 'input' } },
@@ -106,6 +110,7 @@ assert.match(out, /export const TodoSchema/);
 assert.match(out, /export function addTodo/);
 assert.match(out, /const patches = \[\];/);
 assert.match(out, /patches\.push\(\{ op: "set", path: "\/todos\/title", value: input\.title \}\);/);
+assert.match(out, /if \(input\.enabled\) \{\n    patches\.push\(\{ op: "set", path: "\/todos\/status", value: "ready" \}\);\n    const invoke_call_guarded_storage = env\["storage\.write"\];\n    if \(typeof invoke_call_guarded_storage === "function"\) invoke_call_guarded_storage\(input\);\n  \}/);
 assert.match(out, /patches\.push\(\{ op: "insert", path: "\/todos", value: input \}\);/);
 assert.match(out, /patches\.push\(\{ op: 'remove', path: "\/todos\/oldTitle" \}\);/);
 assert.match(out, /const invoke_call_storage = env\["storage\.write"\];/);
