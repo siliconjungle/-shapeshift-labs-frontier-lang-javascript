@@ -203,3 +203,13 @@ const matchDocument = createDocument({ id: 'match', name: 'Match', nodes: [
   ] })
 ] });
 assert.match(emitJavaScript(matchDocument), /switch \(input\.status\) \{\n    case "ready": \{\n      patches\.push\(\{ op: "set", path: "\/status", value: "ready" \}\);\n      break;\n    \}\n    case "blocked": \{\n      patches\.push\(\{ op: "set", path: "\/status", value: "blocked" \}\);\n      break;\n    \}\n    default: \{\n      patches\.push\(\{ op: "set", path: "\/status", value: "pending" \}\);\n    \}\n  \}/);
+
+const forInDocument = createDocument({ id: 'for_in', name: 'ForIn', nodes: [
+  entityNode({ id: 'for_input', name: 'ForInput', fields: [{ id: 'for_items', name: 'items', type: 'Json' }] }),
+  actionNode({ id: 'action_copy_names', name: 'copyNames', input: 'ForInput', returns: 'Patch', body: [
+    { kind: 'forIn', id: 'for_items', itemName: 'item', collection: { expression: 'input.items', expressionAst: ref('input.items', 'input', ['items']) }, body: [
+      { kind: 'patch', op: 'set', id: 'patch_last_name', name: 'lastName', path: '/lastName', value: { expression: 'item.name', expressionAst: ref('item.name', 'local', ['item', 'name']) } }
+    ] }
+  ] })
+] });
+assert.match(emitJavaScript(forInDocument), /for \(const item of input\.items\) \{\n    patches\.push\(\{ op: "set", path: "\/lastName", value: item\.name \}\);\n  \}/);
