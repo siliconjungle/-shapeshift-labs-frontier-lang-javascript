@@ -1,6 +1,6 @@
 {
   "name": "@shapeshift-labs/frontier-lang-javascript",
-  "version": "0.2.24",
+  "version": "0.2.25",
   "description": "JavaScript projection adapter for Frontier Lang semantic source documents.",
   "type": "module",
   "main": "./dist/index.js",
