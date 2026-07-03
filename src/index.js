@@ -1,3 +1,4 @@
+import { actionBodyStatements } from './action-body.js';
 import { semanticDescriptorDeclarations } from './semantic-descriptors.js';
 
 function safeIdentifier(name) {
@@ -125,7 +126,7 @@ export function toJavaScriptAst(document, options = {}) {
   }
   for (const node of Object.values(document.nodes)) {
     if (node.kind === 'action') {
-      declarations.push({ kind: 'exportFunction', name: safeIdentifier(node.name), params: ['state', 'input', 'env = {}'], body: ['void state;', 'void input;', 'void env;', 'return [];'], sourceRef: sourceRef(node) });
+      declarations.push({ kind: 'exportFunction', name: safeIdentifier(node.name), params: ['state', 'input', 'env = {}'], body: actionBodyStatements(node, { safeIdentifier }), sourceRef: sourceRef(node) });
     }
   }
   return { kind: 'javascript.module', banner, declarations };

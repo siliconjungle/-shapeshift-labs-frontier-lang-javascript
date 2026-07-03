@@ -15,7 +15,13 @@ const document = createDocument({ id: 'doc', name: 'Doc', nodes: [
   targetNode({ id: 'target_js', name: 'javascript', target: { language: 'javascript', emitPath: 'doc.js', moduleFormat: 'esm' } }),
   nativeSourceNode({ id: 'native_todo_js', name: 'TodoJs', language: 'javascript', parser: 'typescript-estree', sourcePath: 'doc.js', sourceHash: 'sha256:doc', symbol: 'Todo', frontierNodeIds: ['entity_todo', 'action_add'], losses: [{ id: 'loss_runtime_schema', kind: 'runtimeOnly', message: 'schema emitted as descriptor', severity: 'info' }] }),
   externNode({ id: 'extern_persist', name: 'persistTodo', language: 'javascript', symbol: 'persistTodo', signature: { input: 'Todo', returns: 'Patch' }, effects: ['storage'] }),
-  actionNode({ id: 'action_add', name: 'addTodo', input: 'Todo', returns: 'Patch' })
+  actionNode({ id: 'action_add', name: 'addTodo', input: 'Todo', returns: 'Patch', body: [
+    { kind: 'patch', op: 'set', id: 'patch_title', name: 'title', path: '/todos/title', value: { expression: 'input.title' } },
+    { kind: 'patch', op: 'insert', id: 'patch_insert', name: 'item', path: '/todos', value: { expression: 'input' } },
+    { kind: 'patch', op: 'remove', id: 'patch_remove', name: 'oldTitle', path: '/todos/oldTitle' },
+    { kind: 'callEffect', id: 'call_storage', name: 'persist', capability: 'storage.write', input: { expression: 'input' } },
+    { kind: 'return', id: 'return_patches', value: { expression: 'patches' } }
+  ] })
 ] });
 const out = emitJavaScript(document);
 const ast = toJavaScriptAst(document);
@@ -98,3 +104,10 @@ assert.match(out, /storage\.write/);
 assert.match(out, /createCrdtOrSetLattice/);
 assert.match(out, /export const TodoSchema/);
 assert.match(out, /export function addTodo/);
+assert.match(out, /const patches = \[\];/);
+assert.match(out, /patches\.push\(\{ op: "set", path: "\/todos\/title", value: input\.title \}\);/);
+assert.match(out, /patches\.push\(\{ op: "insert", path: "\/todos", value: input \}\);/);
+assert.match(out, /patches\.push\(\{ op: 'remove', path: "\/todos\/oldTitle" \}\);/);
+assert.match(out, /const invoke_call_storage = env\["storage\.write"\];/);
+assert.match(out, /if \(typeof invoke_call_storage === "function"\) invoke_call_storage\(input\);/);
+assert.match(out, /return patches;/);
